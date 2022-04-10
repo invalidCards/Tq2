@@ -1,4 +1,4 @@
-import { Tranquility, PrimitiveOptionType } from '../tq.ts';
+import { Tranquility } from '../tq.ts';
 import { Harmony } from '../deps.ts';
 
 export function init(tq: Tranquility) {

@@ -8,7 +8,7 @@ export class Tranquility {
     private guildId?: string;
     private owners?: string[];
 
-    constructor(client: Harmony.Client, moduleDir: string, options?: {guildId?: string, owners?: string[]}) {
+    constructor(client: Harmony.Client, moduleDir: string, options?: TranquilityModuleOptions) {
         this._client = client;
         this.moduleDir = moduleDir;
         this.guildId = options?.guildId;
@@ -114,7 +114,8 @@ export class Tranquility {
     }
 
     static newComponent(interaction: Harmony.Interaction) {
-
+        if (!interaction.isApplicationCommand()) return;
+        return new ComponentDefinition(interaction.name);
     }
 
     //#region built-in commands
@@ -197,6 +198,11 @@ function isTranquilityModule(module: unknown): module is TranquilityModule {
         (module as TranquilityModule).init !== undefined
     );
 }
+
+interface TranquilityModuleOptions {
+    guildId?: string,
+    owners?: string[]
+}
 //#endregion
 
 //#region Slash command classes & utility
@@ -208,7 +214,8 @@ export enum PrimitiveOptionType {
     CHANNEL = 7,
     ROLE = 8,
     MENTIONABLE = 9,
-    NUMBER = 10
+    NUMBER = 10,
+    ATTACHMENT = 11
 }
 
 enum SlashCommandPermission {
@@ -439,7 +446,7 @@ class ButtonComponent {
     label?: string;
     emoji?: Harmony.MessageComponentEmoji;
 
-    constructor(action: string, options?: {style: Harmony.ButtonStyle, label?: string, emoji?: Harmony.MessageComponentEmoji}) {
+    constructor(action: string, options?: {style?: Harmony.ButtonStyle, label?: string, emoji?: Harmony.MessageComponentEmoji}) {
         options?.style ? this.action = action : this.link = action;
         this.style = options?.style ?? Harmony.ButtonStyle.LINK;
         this.label = options?.label;
@@ -448,11 +455,20 @@ class ButtonComponent {
 }
 
 class SelectComponent {
+    id: string;
+    choiceCount?: Range;
+    choices?: Harmony.SelectComponentOption[];
 
+    constructor(id: string, choices: Harmony.SelectComponentOption[], options?: {choiceCount?: Range}) {
+        this.id = id;
+        this.choices = choices;
+        this.choiceCount = options?.choiceCount;
+    }
 }
 
 class ActionRowComponent {
-    children?: ButtonComponent[] | SelectComponent;
+    buttonChildren?: ButtonComponent[];
+    selectChild?: SelectComponent;
     parent: ComponentDefinition;
 
     constructor(parent: ComponentDefinition) {
@@ -461,10 +477,41 @@ class ActionRowComponent {
 
     addButton(action: string, style: Harmony.ButtonStyle, options?: {label?: string, emoji?: Harmony.MessageComponentEmoji}) {
         if (style === Harmony.ButtonStyle.LINK) {
-            throw 'addButton may not be used to register link buttons. Use addLinkButton instead.';
+            throw `addButton may not be used to register link buttons. Use addLinkButton instead. For command ${this.parent.command}, action ${action}`;
         }
 
+        if (this.selectChild !== undefined) {
+            throw `addButton for command ${this.parent.command} and action ${action} is not allowed since this action row already has a select component.`;
+        }
 
+        if (!this.buttonChildren) {
+            this.buttonChildren = [];
+        }
+
+        this.buttonChildren.push(new ButtonComponent(action, {style: style, label: options?.label, emoji: options?.emoji}));
+        return this;
+    }
+
+    addLinkButton(link: string, label?: string) {
+        if (this.selectChild !== undefined) {
+            throw `addLinkButton for command ${this.parent.command} to URL ${link} is not allowed since this action row already has a select component.`;
+        }
+
+        if (!this.buttonChildren) {
+            this.buttonChildren = [];
+        }
+
+        this.buttonChildren.push(new ButtonComponent(link, {style: Harmony.ButtonStyle.LINK, label: label}));
+        return this;
+    }
+
+    addSelect(id: string, choices: Harmony.SelectComponentOption[], options?: {choiceCount?: Range}) {
+        if (this.buttonChildren !== undefined) {
+            throw `addSelect for command ${this.parent.command} is not allowed since this action row already has a button component.`;
+        }
+
+        this.selectChild = new SelectComponent(id, choices, options);
+        return this;
     }
 }
 

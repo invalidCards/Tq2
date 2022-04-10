@@ -10,7 +10,7 @@
             "type": "pwa-node",
             "program": "${workspaceFolder}/src/mod.ts",
             "cwd": "${workspaceFolder}",
-            "runtimeExecutable": "C:\\Users\\iC\\.deno\\bin\\deno.EXE",
+            "runtimeExecutable": "/home/ic/.deno/bin/deno",
             "runtimeArgs": [
                 "run",
                 "--inspect",
